@@ -27,7 +27,7 @@ library-agent/
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/<your-username>/library-agent.git
+git clone https://github.com/MohammadHezan/library-agent.git
 cd library-agent
 python3 -m venv venv
 source venv/bin/activate
