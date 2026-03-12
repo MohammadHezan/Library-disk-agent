@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from app import init_db, get_messages, save_message
+from app import init_db, get_messages, get_sessions
 from agent import run_agent
 import os, uuid
 
@@ -22,6 +22,14 @@ def query(body: ChatRequest):
     except Exception as e:
         reply = f"Error: {e}"
     return {"response": reply or "No response.", "session_id": sid}
+
+@app.get("/sessions")
+def sessions():
+    return get_sessions()
+
+@app.get("/sessions/{session_id}")
+def messages(session_id: str):
+    return get_messages(session_id)
 
 @app.get("/")
 def ui():

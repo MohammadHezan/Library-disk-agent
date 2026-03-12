@@ -4,28 +4,90 @@
   <meta charset="UTF-8">
   <title>Library Agent</title>
   <style>
-    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; background: #1e1e2e; color: #cdd6f4; }
-    h2 { color: #89b4fa; margin-bottom: 16px; }
-    #chat { border: 1px solid #313244; border-radius: 8px; padding: 16px; height: 400px; overflow-y: auto; margin-bottom: 12px; background: #181825; }
-    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 80%; white-space: pre-wrap; word-wrap: break-word; }
-    .user { background: #89b4fa; color: #1e1e2e; margin-left: auto; text-align: right; }
+    body { font-family: sans-serif; margin: 0; height: 100vh; display: flex; background: #1e1e2e; color: #cdd6f4; }
+
+    /* Left sidebar */
+    #side { width: 200px; background: #181825; padding: 10px; border-right: 1px solid #313244; display: flex; flex-direction: column; }
+    #side h3 { color: #89b4fa; margin-bottom: 8px; font-size: 14px; }
+    #new-btn { padding: 8px; background: #89b4fa; color: #1e1e2e; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+    #list { flex: 1; overflow-y: auto; }
+    .item { padding: 7px 8px; margin-bottom: 3px; background: #313244; border-radius: 5px; cursor: pointer; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item:hover { background: #45475a; }
+    .item.active { background: #89b4fa; color: #1e1e2e; }
+
+    /* Center chat */
+    #center { flex: 1; display: flex; flex-direction: column; }
+    #chat { flex: 1; overflow-y: auto; padding: 16px; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 75%; white-space: pre-wrap; word-wrap: break-word; }
+    .user { background: #89b4fa; color: #1e1e2e; margin-left: auto; }
     .assistant { background: #313244; }
-    #row { display: flex; gap: 8px; }
+    #bar { display: flex; gap: 8px; padding: 10px; background: #181825; border-top: 1px solid #313244; }
     #msg { flex: 1; padding: 10px; border: 1px solid #313244; border-radius: 6px; background: #313244; color: #cdd6f4; outline: none; }
-    #send { padding: 10px 20px; background: #89b4fa; color: #1e1e2e; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    #send { padding: 10px 18px; background: #89b4fa; color: #1e1e2e; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
     #send:disabled { background: #45475a; }
   </style>
 </head>
 <body>
 
-<h2>📚 Library Desk Agent</h2>
-<div id="chat"></div>
-<div id="row">
-  <input id="msg" placeholder="Ask about books, orders, inventory…" onkeydown="if(event.key==='Enter') send()">
-  <button id="send" onclick="send()">Send</button>
+<!-- Left: session selector -->
+<div id="side">
+  <h3>📚 Library Agent</h3>
+  <button id="new-btn" onclick="newChat()">+ New Chat</button>
+  <div id="list"></div>
+</div>
+
+<!-- Center: chat -->
+<div id="center">
+  <div id="chat"></div>
+  <div id="bar">
+    <input id="msg" placeholder="Ask about books, orders, inventory…" onkeydown="if(event.key==='Enter') send()">
+    <button id="send" onclick="send()">Send</button>
+  </div>
 </div>
 
 <script>
+var sid = null;
+
+// On load, fetch sessions and pick the latest or create new
+window.onload = async function() {
+  await loadSessions();
+  if (!sid) newChat();
+};
+
+// Start a new chat session
+function newChat() {
+  sid = crypto.randomUUID();
+  document.getElementById("chat").innerHTML = "";
+  loadSessions();
+}
+
+// Load session list into sidebar
+async function loadSessions() {
+  var res = await fetch("/sessions");
+  var list = await res.json();
+  var el = document.getElementById("list");
+  el.innerHTML = "";
+  list.forEach(function(s) {
+    var d = document.createElement("div");
+    d.className = "item" + (s.session_id === sid ? " active" : "");
+    d.textContent = (s.preview || "Empty").substring(0, 25);
+    d.onclick = function() { loadChat(s.session_id); };
+    el.appendChild(d);
+  });
+}
+
+// Load an existing chat session
+async function loadChat(id) {
+  sid = id;
+  var res = await fetch("/sessions/" + id);
+  var msgs = await res.json();
+  var chat = document.getElementById("chat");
+  chat.innerHTML = "";
+  msgs.forEach(function(m) { addMsg(m.role, m.content); });
+  loadSessions();
+}
+
+// Send a message
 async function send() {
   var input = document.getElementById("msg");
   var text = input.value.trim();
@@ -39,17 +101,20 @@ async function send() {
     var res = await fetch("/query", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({query: text})
+      body: JSON.stringify({query: text, session_id: sid})
     });
     var data = await res.json();
+    sid = data.session_id;
     addMsg("assistant", data.response || "No response.");
   } catch (e) {
     addMsg("assistant", "Error: " + e.message);
   }
 
   document.getElementById("send").disabled = false;
+  loadSessions();
 }
 
+// Add a message bubble to the chat
 function addMsg(role, text) {
   var chat = document.getElementById("chat");
   var div = document.createElement("div");
