@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Library Agent</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; background: #1e1e2e; color: #cdd6f4; }
+    h2 { color: #89b4fa; margin-bottom: 16px; }
+    #chat { border: 1px solid #313244; border-radius: 8px; padding: 16px; height: 400px; overflow-y: auto; margin-bottom: 12px; background: #181825; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 80%; white-space: pre-wrap; word-wrap: break-word; }
+    .user { background: #89b4fa; color: #1e1e2e; margin-left: auto; text-align: right; }
+    .assistant { background: #313244; }
+    #row { display: flex; gap: 8px; }
+    #msg { flex: 1; padding: 10px; border: 1px solid #313244; border-radius: 6px; background: #313244; color: #cdd6f4; outline: none; }
+    #send { padding: 10px 20px; background: #89b4fa; color: #1e1e2e; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    #send:disabled { background: #45475a; }
+  </style>
+</head>
+<body>
+
+<h2>📚 Library Desk Agent</h2>
+<div id="chat"></div>
+<div id="row">
+  <input id="msg" placeholder="Ask about books, orders, inventory…" onkeydown="if(event.key==='Enter') send()">
+  <button id="send" onclick="send()">Send</button>
+</div>
+
+<script>
+async function send() {
+  var input = document.getElementById("msg");
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  addMsg("user", text);
+  document.getElementById("send").disabled = true;
+
+  try {
+    var res = await fetch("/query", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query: text})
+    });
+    var data = await res.json();
+    addMsg("assistant", data.response || "No response.");
+  } catch (e) {
+    addMsg("assistant", "Error: " + e.message);
+  }
+
+  document.getElementById("send").disabled = false;
+}
+
+function addMsg(role, text) {
+  var chat = document.getElementById("chat");
+  var div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+
+</body>
+</html>
